@@ -431,5 +431,17 @@ def affine_bn_relu_backward(d_out, cache):
     d_bn, dgamma, dbeta = batchnorm_backward_alt(d_relu, bn_cache)
     dx, dw, db= affine_backward(d_bn, affine_cache)
     return dx, dw, db, dgamma, dbeta
+
+def affine_layernnorm_relu_forward(x, w, b, beta, gamma, params):
+    affine_out, affine_cache = affine_forward(x, w, b)
+    bn_out, bn_cache = layernorm_forward(affine_out, gamma, beta, params)
+    relu_out, relu_cache = relu_forward(bn_out)
+    return_cache = (affine_cache, bn_cache, relu_cache)
+    return relu_out, return_cache
     
-    
+def affine_layernorm_relu_backward(d_out, cache):
+    affine_cache, bn_cache, relu_cache = cache
+    d_relu = relu_backward(d_out, relu_cache)
+    d_bn, dgamma, dbeta = layernorm_backward(d_relu, bn_cache)
+    dx, dw, db= affine_backward(d_bn, affine_cache)
+    return dx, dw, db, dgamma, dbeta

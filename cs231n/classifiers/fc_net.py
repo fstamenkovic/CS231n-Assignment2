@@ -295,9 +295,17 @@ class FullyConnectedNet(object):
             cache_list.append(cache)
             scores = out
         
-        if self.normalization:
-            for i in range(1, self.num_layers):            
-                out, cache = affine_bn_relu_forward(data,
+        if self.normalization: #use batchnorm or layernorm
+            for i in range(1, self.num_layers):
+                if self.normalization == 'batchnorm':
+                    out, cache = affine_bn_relu_forward(data,
+                                                    self.params['W' + str(i)],
+                                                    self.params['b' + str(i)],
+                                                    self.params['beta' + str(i)],
+                                                    self.params['gamma' + str(i)],
+                                                    self.bn_params[i - 1])
+                if self.normalization == 'layernorm':
+                    out, cache = affine_layernorm_relu_forward(data,
                                                     self.params['W' + str(i)],
                                                     self.params['b' + str(i)],
                                                     self.params['beta' + str(i)],
@@ -370,7 +378,7 @@ class FullyConnectedNet(object):
                 grads['W' + str(i + 1)] = dw_s[i]
                 grads['b' + str(i + 1)] = db_s[i]
         
-        if self.normalization: #use batchnorm
+        if self.normalization: #use batchnorm or layernorm
             #last layer first
             cache = cache_list.pop()
             dx, dw, db = affine_backward(d_out, cache)
@@ -380,7 +388,12 @@ class FullyConnectedNet(object):
             
             for i in range(len(cache_list)):
                 cache = cache_list.pop()
-                dx, dw, db, dgamma, dbeta = affine_bn_relu_backward(d_out, cache)
+                if self.normalization == 'batchnorm':
+                    dx, dw, db, dgamma, dbeta = affine_bn_relu_backward(d_out, cache)
+                    
+                if self.normalization == 'layernorm':
+                    dx, dw, db, dgamma, dbeta = affine_layernorm_relu_backward(d_out, cache)
+                    
                 dw_s.insert(0, dw)
                 db_s.insert(0, db)
                 dgamma_s.insert(0, dgamma)
@@ -432,7 +445,7 @@ def affine_bn_relu_backward(d_out, cache):
     dx, dw, db= affine_backward(d_bn, affine_cache)
     return dx, dw, db, dgamma, dbeta
 
-def affine_layernnorm_relu_forward(x, w, b, beta, gamma, params):
+def affine_layernorm_relu_forward(x, w, b, beta, gamma, params):
     affine_out, affine_cache = affine_forward(x, w, b)
     bn_out, bn_cache = layernorm_forward(affine_out, gamma, beta, params)
     relu_out, relu_cache = relu_forward(bn_out)

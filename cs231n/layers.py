@@ -555,12 +555,12 @@ def conv_forward_naive(x, w, b, conv_param):
     padding = conv_param['pad']
     stride = conv_param['stride']
     
-    H_out = 1 + (H + 2 * padding - HH) // stride
-    W_out = 1 + (W + 2 * padding - WW) // stride
+    H_out = (H - HH + 2 * padding) // stride + 1
+    W_out = (W - WW + 2 * padding) // stride + 1
      
     out = np.zeros((N, F, H_out, W_out))
     
-    x_padded = np.lib.pad(x, ((0, 0), (0, 0), (1, 1), (1, 1)), mode='constant', constant_values=0)
+    x_padded = np.lib.pad(x, ((0, ), (0, ), (padding,), (padding,)), mode='constant', constant_values=0)
 
     
     for n in range(N):
@@ -594,6 +594,29 @@ def conv_backward_naive(dout, cache):
     ###########################################################################
     # TODO: Implement the convolutional backward pass.                        #
     ###########################################################################
+    x, w, b, conv_param = cache
+    N, C, H, W = x.shape
+    F, _, HH, WW = w.shape
+    _, _, H_out, W_out = dout.shape
+    stride, pad = conv_param['stride'], conv_param['pad']
+
+    x_pad = np.pad(x, ((0,), (0,), (pad,), (pad,)), mode='constant', constant_values=0)
+
+    dx_pad = np.zeros_like(x_pad)
+    dw = np.zeros_like(w)
+    db = np.zeros_like(b)
+
+    # Ref: https://github.com/MahanFathi/CS231/blob/ecab92ed8627ea0ea513a54fc2019516d446c106/assignment2/cs231n/layers.py#L483-L491
+    for n in range(N):
+        for f in range(F):
+            db[f] += np.sum(dout[n, f])
+            for h_out in range(H_out):
+                for w_out in range(W_out):
+                    dw[f] += x_pad[n, :, h_out*stride:h_out*stride+HH, w_out*stride:w_out*stride+WW] * dout[n, f, h_out, w_out]
+                    dx_pad[n, :, h_out*stride:h_out*stride+HH, w_out*stride:w_out*stride+WW] += w[f] * dout[n, f, h_out, w_out]
+
+    dx = dx_pad[:, :, pad:pad+H, pad:pad+W]
+
     pass
     ###########################################################################
     #                             END OF YOUR CODE                            #
